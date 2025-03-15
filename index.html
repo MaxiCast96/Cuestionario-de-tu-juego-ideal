@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Descubre tu Juego Ideal</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        #quiz-container {
+            background-color: #1e1e1e;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            text-align: center;
+        }
+        
+        h1 {
+            color: #bb86fc;
+            margin-bottom: 30px;
+        }
+        
+        #question-container {
+            margin-bottom: 25px;
+        }
+        
+        #question-text {
+            font-size: 1.2em;
+            margin-bottom: 20px;
+        }
+        
+        #options-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        button {
+            background-color: #bb86fc;
+            color: #121212;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        
+        button:hover {
+            background-color: #d0a5ff;
+            transform: translateY(-2px);
+        }
+        
+        #restart-btn {
+            background-color: #03dac6;
+            margin-top: 20px;
+        }
+        
+        #restart-btn:hover {
+            background-color: #66fff0;
+        }
+        
+        .game-card {
+            background-color: #2d2d2d;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .game-card img {
+            max-width: 100%;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        
+        .game-card a {
+            display: inline-block;
+            background-color: #03dac6;
+            color: #121212;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            margin-top: 15px;
+            transition: background-color 0.3s;
+        }
+        
+        .game-card a:hover {
+            background-color: #66fff0;
+        }
+        
+        .error-message {
+            color: #ff4d4d;
+            margin: 20px 0;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: rgba(255, 77, 77, 0.2);
+        }
+        
+        .loader {
+            border: 5px solid #2d2d2d;
+            border-top: 5px solid #bb86fc;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="quiz-container">
+        <h1>Descubre tu Juego Ideal 🎮✨</h1>
+        <div id="question-container">
+            <p id="question-text">Pregunta aparecerá aquí</p>
+            <div id="options-container"></div>
+        </div>
+        <div id="result-container"></div>
+        <div id="error-container"></div>
+        <div id="loader" style="display: none;" class="loader"></div>
+        <button id="restart-btn" style="display: none;" onclick="restartQuiz();">🔄 Volver a empezar</button>
+    </div>
+    
+    <script>
+        const API_KEY = '979c959dbb6c45e2b65e2e876f4616fc';
+        const API_URL = `https://api.rawg.io/api/games?key=${API_KEY}`;
+
+        let currentQuestionIndex = 0;
+        let userPreferences = {};
+
+        const questions = [
+            { text: "¿Prefieres juegos multijugador o de un solo jugador?", options: ["Multijugador", "Singleplayer", "Ambos", "Cooperativo local"] },
+            { text: "¿Te gustan más los juegos de acción o estrategia?", options: ["Acción", "Estrategia", "Ambos", "Ninguno"] },
+            { text: "¿Quieres juegos recientes o clásicos?", options: ["Recientes", "Clásicos", "No importa"] },
+            { text: "¿Te interesan juegos con mundo abierto?", options: ["Sí", "No"] },
+            { text: "¿Qué plataforma utilizas principalmente?", options: ["PC", "PlayStation", "Xbox", "Nintendo"] },
+            { text: "¿Qué duración prefieres en tus juegos?", options: ["Cortos (menos de 10h)", "Medianos (10-30h)", "Largos (más de 30h)", "No importa"] },
+            { text: "¿Qué nivel de dificultad buscas?", options: ["Fácil y relajado", "Desafiante pero justo", "Difícil tipo Souls", "No importa"] },
+            { text: "¿Qué tipo de narrativa prefieres?", options: ["Lineal con buena historia", "Historia ramificada con decisiones", "Poca historia, centrado en gameplay", "Narrativa emergente"] },
+            { text: "¿Qué ambientación te interesa más?", options: ["Fantasía", "Ciencia ficción", "Historia/Realismo", "Terror/Horror"] }
+        ];
+
+        function showQuestion() {
+            const questionElement = document.getElementById("question-text");
+            const optionsContainer = document.getElementById("options-container");
+            optionsContainer.innerHTML = "";
+            
+            if (currentQuestionIndex < questions.length) {
+                questionElement.textContent = questions[currentQuestionIndex].text;
+                questions[currentQuestionIndex].options.forEach(option => {
+                    const button = document.createElement("button");
+                    button.textContent = option;
+                    button.onclick = () => saveAnswer(option);
+                    optionsContainer.appendChild(button);
+                });
+            } else {
+                document.getElementById("question-container").style.display = "none";
+                document.getElementById("loader").style.display = "block";
+                fetchGames();
+            }
+        }
+
+        function saveAnswer(answer) {
+    // Guardar la respuesta con el texto de la pregunta como clave
+    const questionText = questions[currentQuestionIndex].text;
+    console.log(`Guardando respuesta para "${questionText}": ${answer}`);
+    
+    userPreferences[currentQuestionIndex] = answer;
+    currentQuestionIndex++;
+    showQuestion();
+}
+
+        // Función para debug
+function logGameData(games) {
+    console.log("Juegos recibidos:", games.length);
+    if (games.length > 0) {
+        console.log("Ejemplo de juego:", games[0]);
+        
+        // Verificar estructura para filtros
+        console.log("Tags disponibles:", games[0].tags?.map(t => t.name) || "No hay tags");
+        console.log("Géneros disponibles:", games[0].genres?.map(g => g.name) || "No hay géneros");
+    }
+}
+
+// Función de filtrado 
+function filterGames(games) {
+    // Añadir debugging
+    logGameData(games);
+    
+    // Crear una copia del array original
+    let filteredGames = [...games];
+    console.log("Juegos iniciales:", filteredGames.length);
+    
+    try {
+        // Aplicar filtros de manera más permisiva
+        
+        // Filtro multijugador/singleplayer - más flexible
+        if (userPreferences[0] === "Multijugador" || userPreferences[0] === "Ambos" || userPreferences[0] === "Cooperativo local") {
+            const multiplayerTerms = ["multiplayer", "multi-player", "multi player", "coop", "co-op"];
+            // Si es específicamente cooperativo local, buscar esos términos
+            if (userPreferences[0] === "Cooperativo local") {
+                multiplayerTerms.push("local co-op", "local coop", "couch co-op", "split screen");
+            }
+            filteredGames = filteredGames.filter(game => 
+                game.tags && Array.isArray(game.tags) && 
+                game.tags.some(tag => tag.name && 
+                    multiplayerTerms.some(term => tag.name.toLowerCase().includes(term)))
+            );
+        } else if (userPreferences[0] === "Singleplayer") {
+            const singleplayerTerms = ["singleplayer", "single-player", "single player", "story"];
+            filteredGames = filteredGames.filter(game => 
+                game.tags && Array.isArray(game.tags) && 
+                game.tags.some(tag => tag.name && 
+                    singleplayerTerms.some(term => tag.name.toLowerCase().includes(term)))
+            );
+        }
+        console.log("Después de filtro multijugador:", filteredGames.length);
+        
+        // Filtro acción/estrategia - más flexible
+        if (userPreferences[1] === "Acción" || userPreferences[1] === "Ambos") {
+            const actionTerms = ["action", "shooter", "fighting"];
+            const matchedGames = filteredGames.filter(game => 
+                (game.genres && Array.isArray(game.genres) && 
+                game.genres.some(genre => genre.name && 
+                    actionTerms.some(term => genre.name.toLowerCase().includes(term)))) ||
+                (game.tags && Array.isArray(game.tags) && 
+                game.tags.some(tag => tag.name && 
+                    actionTerms.some(term => tag.name.toLowerCase().includes(term))))
+            );
+            
+            // Si seleccionó "Ambos", no filtra
+            if (userPreferences[1] === "Ambos") {
+                if (matchedGames.length > 0) {
+                    // Priorizar pero no filtrar completamente
+                    const otherGames = filteredGames.filter(game => !matchedGames.includes(game));
+                    filteredGames = [...matchedGames, ...otherGames];
+                }
+            } else {
+                filteredGames = matchedGames;
+            }
+        } else if (userPreferences[1] === "Estrategia" || userPreferences[1] === "Ambos") {
+            const strategyTerms = ["strategy", "tactical", "puzzle", "card", "board"];
+            const matchedGames = filteredGames.filter(game => 
+                (game.genres && Array.isArray(game.genres) && 
+                game.genres.some(genre => genre.name && 
+                    strategyTerms.some(term => genre.name.toLowerCase().includes(term)))) ||
+                (game.tags && Array.isArray(game.tags) && 
+                game.tags.some(tag => tag.name && 
+                    strategyTerms.some(term => tag.name.toLowerCase().includes(term))))
+            );
+            
+            // Si seleccionó "Ambos", no filtra
+            if (userPreferences[1] === "Ambos") {
+                if (matchedGames.length > 0) {
+                    // Priorizar pero no filtrar completamente
+                    const otherGames = filteredGames.filter(game => !matchedGames.includes(game));
+                    filteredGames = [...matchedGames, ...otherGames];
+                }
+            } else {
+                filteredGames = matchedGames;
+            }
+        }
+        console.log("Después de filtro acción/estrategia:", filteredGames.length);
+        
+        // Filtro juegos recientes o clásicos
+        if (userPreferences[2] === "Recientes") {
+            const currentYear = new Date().getFullYear();
+            filteredGames = filteredGames.filter(game => 
+                game.released && new Date(game.released).getFullYear() >= currentYear - 5
+            );
+        } else if (userPreferences[2] === "Clásicos") {
+            const currentYear = new Date().getFullYear();
+            filteredGames = filteredGames.filter(game => 
+                game.released && new Date(game.released).getFullYear() < currentYear - 10
+            );
+        }
+        console.log("Después de filtro recientes/clásicos:", filteredGames.length);
+        
+        // Filtro mundo abierto
+        if (userPreferences[3] === "Sí") {
+            const openWorldTerms = ["open world", "open-world", "sandbox"];
+            filteredGames = filteredGames.filter(game => 
+                game.tags && Array.isArray(game.tags) && 
+                game.tags.some(tag => tag.name && 
+                    openWorldTerms.some(term => tag.name.toLowerCase().includes(term)))
+            );
+        }
+        console.log("Después de filtro mundo abierto:", filteredGames.length);
+        
+        // Filtro por plataforma
+        if (userPreferences[4] && userPreferences[4] !== "No importa") {
+            const platformMapping = {
+                "PC": ["pc"],
+                "PlayStation": ["playstation", "ps4", "ps5"],
+                "Xbox": ["xbox", "xbox one", "xbox series"],
+                "Nintendo": ["nintendo", "switch"]
+            };
+            
+            const platformTerms = platformMapping[userPreferences[4]] || [];
+            
+            if (platformTerms.length > 0) {
+                filteredGames = filteredGames.filter(game => 
+                    game.platforms && Array.isArray(game.platforms) && 
+                    game.platforms.some(platform => platform.platform && 
+                        platformTerms.some(term => 
+                            platform.platform.name && platform.platform.name.toLowerCase().includes(term)
+                        )
+                    )
+                );
+            }
+        }
+        console.log("Después de filtro plataforma:", filteredGames.length);
+        
+        // Filtro por duración - usar metascores y géneros como proxy para estimar duración
+        if (userPreferences[5]) {
+            if (userPreferences[5] === "Cortos (menos de 10h)") {
+                // Los juegos indie, puzzle, casual o con score bajo tienden a ser más cortos, como el portal, ojala más juegos asó...
+                const shortGameTerms = ["indie", "puzzle", "casual", "arcade"];
+                const matchedGames = filteredGames.filter(game => 
+                    (game.genres && Array.isArray(game.genres) && 
+                    game.genres.some(genre => genre.name && 
+                        shortGameTerms.some(term => genre.name.toLowerCase().includes(term)))) ||
+                    (game.tags && Array.isArray(game.tags) && 
+                    game.tags.some(tag => tag.name && 
+                        shortGameTerms.some(term => tag.name.toLowerCase().includes(term))))
+                );
+                
+                if (matchedGames.length > 0) {
+                    filteredGames = matchedGames;
+                }
+            } else if (userPreferences[5] === "Largos (más de 30h)") {
+                // RPGs, Open world, MMOs tienden a ser más largos, tipo el RDR2
+                const longGameTerms = ["rpg", "role-playing", "role playing", "open world", "mmo", "massive"];
+                const matchedGames = filteredGames.filter(game => 
+                    (game.genres && Array.isArray(game.genres) && 
+                    game.genres.some(genre => genre.name && 
+                        longGameTerms.some(term => genre.name.toLowerCase().includes(term)))) ||
+                    (game.tags && Array.isArray(game.tags) && 
+                    game.tags.some(tag => tag.name && 
+                        longGameTerms.some(term => tag.name.toLowerCase().includes(term))))
+                );
+                
+                if (matchedGames.length > 0) {
+                    filteredGames = matchedGames;
+                }
+            }
+        }
+        console.log("Después de filtro duración:", filteredGames.length);
+        
+        // Filtro por dificultad
+        if (userPreferences[6]) {
+            if (userPreferences[6] === "Difícil tipo Souls") {
+                const hardTerms = ["souls-like", "difficult", "hard", "challenging", "rogue-like", "roguelike"];
+                const matchedGames = filteredGames.filter(game => 
+                    game.tags && Array.isArray(game.tags) && 
+                    game.tags.some(tag => tag.name && 
+                        hardTerms.some(term => tag.name.toLowerCase().includes(term)))
+                );
+                
+                if (matchedGames.length > 0) {
+                    filteredGames = matchedGames;
+                }
+            } else if (userPreferences[6] === "Fácil y relajado") {
+                const casualTerms = ["casual", "relaxing", "family", "kids"];
+                const matchedGames = filteredGames.filter(game => 
+                    game.tags && Array.isArray(game.tags) && 
+                    game.tags.some(tag => tag.name && 
+                        casualTerms.some(term => tag.name.toLowerCase().includes(term)))
+                );
+                
+                if (matchedGames.length > 0) {
+                    filteredGames = matchedGames;
+                }
+            }
+        }
+        console.log("Después de filtro dificultad:", filteredGames.length);
+        
+        // Filtro por tipo de narrativa
+        if (userPreferences[7]) {
+            if (userPreferences[7] === "Lineal con buena historia") {
+                const linearStoryTerms = ["story", "story-rich", "linear", "singleplayer", "atmospheric"];
+                const matchedGames = filteredGames.filter(game => 
+                    game.tags && Array.isArray(game.tags) && 
+                    game.tags.some(tag => tag.name && 
+                        linearStoryTerms.some(term => tag.name.toLowerCase().includes(term)))
+                );
+                
+                if (matchedGames.length > 0) {
+                    filteredGames = matchedGames;
+                }
+            } else if (userPreferences[7] === "Historia ramificada con decisiones") {
+                const branchingTerms = ["choices", "choice", "decisions", "multiple endings", "rpg", "role-playing"];
+                const matchedGames = filteredGames.filter(game => 
+                    game.tags && Array.isArray(game.tags) && 
+                    game.tags.some(tag => tag.name && 
+                        branchingTerms.some(term => tag.name.toLowerCase().includes(term)))
+                );
+                
+                if (matchedGames.length > 0) {
+                    filteredGames = matchedGames;
+                }
+            } else if (userPreferences[7] === "Poca historia, centrado en gameplay") {
+                const gameplayTerms = ["arcade", "fast-paced", "physics", "action", "platformer"];
+                const matchedGames = filteredGames.filter(game => 
+                    game.tags && Array.isArray(game.tags) && 
+                    game.tags.some(tag => tag.name && 
+                        gameplayTerms.some(term => tag.name.toLowerCase().includes(term)))
+                );
+                
+                if (matchedGames.length > 0) {
+                    filteredGames = matchedGames;
+                }
+            } else if (userPreferences[7] === "Narrativa emergente") {
+                const emergentTerms = ["sandbox", "simulation", "open world", "building", "procedural"];
+                const matchedGames = filteredGames.filter(game => 
+                    game.tags && Array.isArray(game.tags) && 
+                    game.tags.some(tag => tag.name && 
+                        emergentTerms.some(term => tag.name.toLowerCase().includes(term)))
+                );
+                
+                if (matchedGames.length > 0) {
+                    filteredGames = matchedGames;
+                }
+            }
+        }
+        console.log("Después de filtro narrativa:", filteredGames.length);
+        
+        // Filtro por ambientación
+        if (userPreferences[8]) {
+            const settingMapping = {
+                "Fantasía": ["fantasy", "magic", "medieval", "dragons", "mythology"],
+                "Ciencia ficción": ["sci-fi", "sci fi", "science fiction", "space", "futuristic", "cyberpunk"],
+                "Historia/Realismo": ["historical", "realistic", "modern", "simulation", "military"],
+                "Terror/Horror": ["horror", "survival horror", "zombies", "gore", "thriller", "dark"]
+            };
+            
+            const settingTerms = settingMapping[userPreferences[8]] || [];
+            
+            if (settingTerms.length > 0) {
+                const matchedGames = filteredGames.filter(game => 
+                    (game.genres && Array.isArray(game.genres) && 
+                    game.genres.some(genre => genre.name && 
+                        settingTerms.some(term => genre.name.toLowerCase().includes(term)))) ||
+                    (game.tags && Array.isArray(game.tags) && 
+                    game.tags.some(tag => tag.name && 
+                        settingTerms.some(term => tag.name.toLowerCase().includes(term))))
+                );
+                
+                if (matchedGames.length > 0) {
+                    filteredGames = matchedGames;
+                }
+            }
+        }
+        console.log("Después de filtro ambientación:", filteredGames.length);
+        
+        // Si ya no quedan juegos, relajamos los filtros gradualmente, como en el emparejamiento del COD XD
+        if (filteredGames.length < 3) {
+            console.log("Muy pocos juegos que cumplan con todos los criterios, relajando filtros...");
+            filteredGames = [...games]; // Reiniciar
+            
+            // Aplicamos solo los filtros más importantes
+            // Multijugador/Singleplayer
+            if (userPreferences[0] === "Cooperativo local") {
+                    multiplayerTerms.push("local co-op", "local coop", "couch co-op", "split screen");
+                }
+                filteredGames = filteredGames.filter(game => 
+                    game.tags && Array.isArray(game.tags) && 
+                    game.tags.some(tag => tag.name && 
+                        multiplayerTerms.some(term => tag.name.toLowerCase().includes(term)))
+                );
+            } else if (userPreferences[0] === "Singleplayer") {
+                const singleplayerTerms = ["singleplayer", "single-player", "single player", "story"];
+                filteredGames = filteredGames.filter(game => 
+                    game.tags && Array.isArray(game.tags) && 
+                    game.tags.some(tag => tag.name && 
+                        singleplayerTerms.some(term => tag.name.toLowerCase().includes(term)))
+                );
+            }
+            
+            // Acción/Estrategia
+            if (userPreferences[1] === "Acción") {
+                const actionTerms = ["action", "shooter", "fighting"];
+                filteredGames = filteredGames.filter(game => 
+                    (game.genres && Array.isArray(game.genres) && 
+                    game.genres.some(genre => genre.name && 
+                        actionTerms.some(term => genre.name.toLowerCase().includes(term)))) ||
+                    (game.tags && Array.isArray(game.tags) && 
+                    game.tags.some(tag => tag.name && 
+                        actionTerms.some(term => tag.name.toLowerCase().includes(term))))
+                );
+            } else if (userPreferences[1] === "Estrategia") {
+                const strategyTerms = ["strategy", "tactical", "puzzle", "card", "board"];
+                filteredGames = filteredGames.filter(game => 
+                    (game.genres && Array.isArray(game.genres) && 
+                    game.genres.some(genre => genre.name && 
+                        strategyTerms.some(term => genre.name.toLowerCase().includes(term)))) ||
+                    (game.tags && Array.isArray(game.tags) && 
+                    game.tags.some(tag => tag.name && 
+                        strategyTerms.some(term => tag.name.toLowerCase().includes(term))))
+                );
+            }
+        
+        
+        // Si aún no hay suficientes resultados (menos de 2), usamos únicamente la preferencia de plataforma y ambientación
+        if (filteredGames.length < 2) {
+            console.log("Sin resultados suficientes con filtros principales, usando plataforma y ambientación");
+            filteredGames = [...games]; // Reiniciar
+            
+            // Filtro por plataforma
+            if (userPreferences[4] && userPreferences[4] !== "No importa") {
+                const platformMapping = {
+                    "PC": ["pc"],
+                    "PlayStation": ["playstation", "ps4", "ps5"],
+                    "Xbox": ["xbox", "xbox one", "xbox series"],
+                    "Nintendo": ["nintendo", "switch"]
+                };
+                
+                const platformTerms = platformMapping[userPreferences[4]] || [];
+                
+                if (platformTerms.length > 0) {
+                    const platformFilteredGames = filteredGames.filter(game => 
+                        game.platforms && Array.isArray(game.platforms) && 
+                        game.platforms.some(platform => platform.platform && 
+                            platformTerms.some(term => 
+                                platform.platform.name && platform.platform.name.toLowerCase().includes(term)
+                            )
+                        )
+                    );
+                    
+                    if (platformFilteredGames.length >= 3) {
+                        filteredGames = platformFilteredGames;
+                    }
+                }
+            }
+            
+            // Filtro por ambientación como último recurso
+            if (userPreferences[8]) {
+                const settingMapping = {
+                    "Fantasía": ["fantasy", "magic", "medieval", "dragons", "mythology"],
+                    "Ciencia ficción": ["sci-fi", "sci fi", "science fiction", "space", "futuristic", "cyberpunk"],
+                    "Historia/Realismo": ["historical", "realistic", "modern", "simulation", "military"],
+                    "Terror/Horror": ["horror", "survival horror", "zombies", "gore", "thriller", "dark"]
+                };
+                
+                const settingTerms = settingMapping[userPreferences[8]] || [];
+                
+                if (settingTerms.length > 0) {
+                    const settingFilteredGames = filteredGames.filter(game => 
+                        (game.genres && Array.isArray(game.genres) && 
+                        game.genres.some(genre => genre.name && 
+                            settingTerms.some(term => genre.name.toLowerCase().includes(term)))) ||
+                        (game.tags && Array.isArray(game.tags) && 
+                        game.tags.some(tag => tag.name && 
+                            settingTerms.some(term => tag.name.toLowerCase().includes(term))))
+                    );
+                    
+                    if (settingFilteredGames.length >= 2) {
+                        filteredGames = settingFilteredGames;
+                    }
+                }
+            }
+        }
+        
+        // Si aún no hay resultados, mostramos juegos aleatorios
+        if (filteredGames.length === 0) {
+            console.log("Sin resultados con ningún filtro, mostrando juegos aleatorios");
+            filteredGames = games.slice(0, 10); // Tomamos algunos juegos al azar
+        }
+        
+        console.log("Juegos finales filtrados:", filteredGames.length);
+        showResult(filteredGames);
+    } catch (error) {
+        console.error("Error al filtrar juegos:", error);
+        // Si hay un error en el filtrado, mostramos algunos juegos aleatorios
+        filteredGames = games.slice(0, 5);
+        showResult(filteredGames);
+    }
+}
+
+                    
+//función fetchGames
+async function fetchGames() {
+    document.getElementById("loader").style.display = "block";
+    
+    try {
+        // Agrega parámetros para aumentar la cantidad de resultados y mejorar la variedad
+        const apiUrlWithParams = `${API_URL}&page_size=40&ordering=-rating`;
+        console.log("Consultando API:", apiUrlWithParams);
+        
+        const response = await fetch(apiUrlWithParams);
+        
+        if (!response.ok) {
+            throw new Error(`Error en la respuesta: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log("Respuesta de API recibida");
+        
+        if (!data || !Array.isArray(data.results) || data.results.length === 0) {
+            throw new Error("Formato de respuesta inesperado o sin resultados");
+        }
+        
+        filterGames(data.results);
+    } catch (error) {
+        console.error("Error al obtener juegos:", error);
+        showError(`No pudimos conectar con la base de datos de juegos: ${error.message}`);
+    } finally {
+        document.getElementById("loader").style.display = "none";
+        document.getElementById("restart-btn").style.display = "block";
+    }
+}
+function showResult(games) {
+    const resultContainer = document.getElementById("result-container");
+    resultContainer.innerHTML = "";
+    
+    if (!games || games.length === 0) {
+        resultContainer.innerHTML = `
+            <div class="game-card">
+                <h2>No encontramos un juego ideal para ti 😢</h2>
+                <p>Intenta con otras preferencias o amplía tus criterios de búsqueda.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    const selectedGame = games[Math.floor(Math.random() * games.length)];
+    
+    // Obtener géneros como texto
+    let genresText = "No especificados";
+    if (selectedGame.genres && Array.isArray(selectedGame.genres) && selectedGame.genres.length > 0) {
+        genresText = selectedGame.genres.map(genre => genre.name).join(", ");
+    }
+    
+    // Obtener plataformas como texto
+    let platformsText = "No especificadas";
+    if (selectedGame.platforms && Array.isArray(selectedGame.platforms) && selectedGame.platforms.length > 0) {
+        platformsText = selectedGame.platforms
+            .filter(platform => platform.platform && platform.platform.name)
+            .map(platform => platform.platform.name)
+            .join(", ");
+    }
+    
+    // Obtener etiquetas relevantes (limitadas a 5 para no sobrecargar)
+    let tagsText = "";
+    if (selectedGame.tags && Array.isArray(selectedGame.tags) && selectedGame.tags.length > 0) {
+        tagsText = `
+            <p><strong>Etiquetas:</strong> ${selectedGame.tags.slice(0, 5).map(tag => tag.name).join(", ")}</p>
+        `;
+    }
+    
+    resultContainer.innerHTML = `
+        <div class="game-card">
+            <h2>${selectedGame.name || "Juego sin nombre"}</h2>
+            ${selectedGame.background_image ? 
+                `<img src="${selectedGame.background_image}" alt="${selectedGame.name || 'Imagen del juego'}">` : 
+                '<p>No hay imagen disponible</p>'}
+            <p><strong>Fecha de lanzamiento:</strong> ${selectedGame.released || "Desconocida"}</p>
+            <p><strong>Calificación:</strong> ${selectedGame.rating ? selectedGame.rating + "/5" : "Sin calificación"}</p>
+            <p><strong>Géneros:</strong> ${genresText}</p>
+            <p><strong>Plataformas:</strong> ${platformsText}</p>
+            ${tagsText}
+            ${selectedGame.slug ? 
+                `<a href="https://rawg.io/games/${selectedGame.slug}" target="_blank">Ver más detalles</a>` : 
+                ''}
+        </div>
+    `;
+}
+
+        function showError(message) {
+            const errorContainer = document.getElementById("error-container");
+            errorContainer.innerHTML = `<div class="error-message">${message}</div>`;
+        }
+
+        function restartQuiz() {
+            currentQuestionIndex = 0;
+            userPreferences = {};
+            document.getElementById("question-container").style.display = "block";
+            document.getElementById("result-container").innerHTML = "";
+            document.getElementById("error-container").innerHTML = "";
+            document.getElementById("restart-btn").style.display = "none";
+            showQuestion();
+        }
+
+        document.addEventListener("DOMContentLoaded", showQuestion);
+    </script>
+</body>
+</html>
